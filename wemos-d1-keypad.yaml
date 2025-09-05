@@ -1,0 +1,284 @@
+esphome:
+  name: wemos-d1-keypad
+  friendly_name: Wemos-D1-Keypad
+  name_add_mac_suffix: false
+
+  on_boot:
+    priority: -100
+    then:
+      - delay: 5s
+      - lambda: |-
+          id(boot_complete) = true;
+
+esp8266:
+  #board: esp01_1m # A generic option for ESP-01 modules with 1MB flash.
+  board: d1_mini # Ideal for Wemos D1 Mini boards.
+
+
+#esp32:
+#  board: wemos_d1_mini32
+#  framework:
+#    type: esp-idf
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret wemos_d1_keypad_api_key
+
+ota:
+  - platform: esphome
+    password: !secret wemos_d1_keypad_ota_password
+
+wifi:
+  ssid: !secret wifi_xi2_ssid
+  password: !secret wifi_xi2_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Wemos-D1-Keypad Fallback Hotspot"
+    password: !secret wifi_xi2_password
+
+globals:
+  - id: boot_complete
+    type: bool
+    initial_value: 'false'
+  - id: arming_countdown
+    type: int
+    initial_value: '0'
+  - id: alarm_status
+    type: std::string
+    initial_value: ""
+  - id: last_action_key
+    type: std::string
+    initial_value: ""
+  - id: trimmed_code
+    type: std::string
+    restore_value: no
+    initial_value: ""
+
+sensor:
+  - platform: homeassistant
+    name: "HA Alarm State"
+    entity_id: alarm_control_panel.home_alarm
+    id: ha_alarm_state
+ 
+matrix_keypad:
+  id: my_keypad
+  rows:
+    - pin: D1
+    - pin: D2
+    - pin: D3
+    - pin: D4
+  columns:
+    - pin: D5
+    - pin: D6
+    - pin: D7
+    - pin: D0
+  keys: "123A456B789C*0#D"
+  has_diodes: false
+
+light:
+  - platform: neopixelbus
+    variant: apa106
+    id: light_1
+    type: RGB
+    pin: D8
+    num_leds: 8
+    name: "APA106 Light" 
+    
+
+key_collector:
+  - id: alarm_input
+    source_id: my_keypad
+    max_length: 5
+    clear_keys: "#"
+    back_keys: "*"
+    on_progress: 
+      then:
+      - light.addressable_set:
+          id: light_1
+          range_from: 3
+          range_to: 3
+          red: 100%
+          green: 100%
+          blue: 100%
+          color_brightness: 50%
+      - delay: 
+          0.1s
+      - light.addressable_set:
+          id: light_1
+          range_from: 3
+          range_to: 3
+          red: 0%
+          green: 0%
+          blue: 0%
+            
+
+    on_result:
+      then:
+        - lambda: |-
+            std::string trimmed = x.substr(1);  // Remove first character
+            id(trimmed_code) = trimmed;         // Assign to global
+            ESP_LOGI("keypad", "Code entered: %s", x.c_str());
+            ESP_LOGI("key_collector", "Trimmed and stored: %s", id(trimmed_code).c_str());
+        - if:
+            condition:
+              lambda: 'return id(last_action_key) == "A";'
+            then:
+              - lambda: |-
+                  ESP_LOGI("alarm", "Sending arm_away with code %s", x.c_str());
+                  ESP_LOGI("alarm", "Sending arm_away with trimmed_code %s", id(trimmed_code).c_str());
+              - homeassistant.service:
+                  service: alarm_control_panel.alarm_arm_away
+                  data:
+                    entity_id: alarm_control_panel.ha_alarm
+                    code: !lambda 'return id(trimmed_code).c_str();'
+        - if:
+            condition:
+              lambda: 'return id(last_action_key) == "B";'
+            then:
+              - lambda: |-
+                  ESP_LOGI("alarm", "Sending arm_home with code %s", x.c_str());
+              - homeassistant.service:
+                  service: alarm_control_panel.alarm_arm_home
+                  data:
+                    entity_id: alarm_control_panel.ha_alarm
+                    code: !lambda 'return id(trimmed_code);'
+        - if:
+            condition:
+              lambda: 'return id(last_action_key) == "C";'
+            then:
+              - lambda: |-
+                  ESP_LOGI("alarm", "Sending arm_vacation with code %s", x.c_str());
+              - homeassistant.service:
+                  service: alarm_control_panel.alarm_arm_vacation
+                  data:
+                    entity_id: alarm_control_panel.ha_alarm
+                    code: !lambda 'return id(trimmed_code);'
+        - if:
+            condition:
+              lambda: 'return id(last_action_key) == "D";'
+            then:
+              - lambda: |-
+                  ESP_LOGI("alarm", "Sending disarm with code %s", x.c_str());
+              - homeassistant.service:
+                  service: alarm_control_panel.alarm_disarm
+                  data:
+                    entity_id: alarm_control_panel.ha_alarm
+                    code: !lambda 'return id(trimmed_code);'
+        - lambda: 'id(last_action_key) = "";'
+        
+binary_sensor:
+  - platform: matrix_keypad
+    keypad_id: my_keypad
+    key: A
+    name: "Arm Away Key"
+    on_press:
+      - lambda: |-
+          ESP_LOGI("keypad", "Arm Away key pressed");
+          id(last_action_key) = "A";
+      - light.addressable_set:
+          id: light_1
+          range_from: 4
+          range_to: 4
+          red: 100%
+          green: 0%
+          blue: 0%
+          color_brightness: 50%
+    on_release:
+      - light.addressable_set:
+          id: light_1
+          range_from: 4
+          range_to: 4
+          red: 0%
+          green: 0%
+          blue: 0%
+
+  - platform: matrix_keypad
+    keypad_id: my_keypad
+    key: B
+    name: "Arm Home Key"
+    on_press:
+      - lambda: |-
+          ESP_LOGI("keypad", "Arm Home key pressed");
+          id(last_action_key) = "B";
+      - light.addressable_set:
+          id: light_1
+          range_from: 5
+          range_to: 5
+          red: 100%
+          green: 0%
+          blue: 0%
+          color_brightness: 50%
+    on_release:
+      - light.addressable_set:
+          id: light_1
+          range_from: 5
+          range_to: 5
+          red: 0%
+          green: 0%
+          blue: 0%
+
+  - platform: matrix_keypad
+    keypad_id: my_keypad
+    key: C
+    name: "Arm Vacation Key"
+    on_press:
+      - lambda: |-
+          ESP_LOGI("keypad", "Arm Vacation key pressed");
+          id(last_action_key) = "C";
+      - light.addressable_set:
+          id: light_1
+          range_from: 6
+          range_to: 6
+          red: 0%
+          green: 100%
+          blue: 0%
+          color_brightness: 50%
+    on_release:
+      - light.addressable_set:
+          id: light_1
+          range_from: 6
+          range_to: 6
+          red: 0%
+          green: 0%
+          blue: 0%
+
+  - platform: matrix_keypad
+    keypad_id: my_keypad
+    key: D
+    name: "Disarm Key"
+    on_press:
+      - lambda: |-
+          ESP_LOGI("keypad", "Disarm key pressed");
+          id(last_action_key) = "D";
+      - light.addressable_set:
+          id: light_1
+          range_from: 7
+          range_to: 7
+          red: 0%
+          green: 0%
+          blue: 100%
+          color_brightness: 50%
+    on_release:
+      - light.addressable_set:
+          id: light_1
+          range_from: 7
+          range_to: 7
+          red: 0%
+          green: 0%
+          blue: 0%
+
+
+#CONF_ALARM_ARMED_AWAY = "armed_away"
+#CONF_ALARM_ARMED_CUSTOM_BYPASS = "armed_custom_bypass"
+#CONF_ALARM_ARMED_HOME = "armed_home"
+#CONF_ALARM_ARMED_NIGHT = "armed_night"
+#CONF_ALARM_ARMED_VACATION = "armed_vacation"
+#CONF_ALARM_ARMING = "arming"
+#CONF_ALARM_DISARMED = "disarmed"
+#CONF_ALARM_PENDING = "pending"
+#CONF_ALARM_TRIGGERED = "triggered"          
