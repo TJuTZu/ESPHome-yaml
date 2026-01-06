@@ -1,6 +1,7 @@
 # ESPHome-yaml
-ESPHome configurations
+Some ESPHome configurations made by me.
 
+These might give someone ideas how to make their own device configuratios
 
 ## wemos-d1-keypad.yaml
 
