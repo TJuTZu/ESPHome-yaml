@@ -95,6 +95,7 @@ time:
 # --------------
 display:
   platform: tm1638
+  id: tm1638_display
   clk_pin: GPIO14 # D5
   dio_pin: GPIO12 # D6
   stb_pin: GPIO13 # D7
