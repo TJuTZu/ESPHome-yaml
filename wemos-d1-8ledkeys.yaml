@@ -1,0 +1,408 @@
+esphome:
+  name: wemos-d1-8ledkeys
+  friendly_name: wemos-d1-8ledkeys
+
+esp8266:
+  board: d1_mini # Ideal for Wemos D1 Mini boards.
+
+# Enable logging
+logger:
+
+# plugs in Home Assistant
+substitutions:
+  plug_01: switch.tapo_115_01
+  plug_02: switch.tapo_115_02
+  plug_03: switch.tapo_p115_03
+  plug_04: switch.tapo_p115_04
+  plug_05: switch.tapo_p115_A
+  plug_06: switch.tapo_p115_B
+  plug_07: switch.tapo_p115_C
+  plug_08: switch.tapo_p115_D
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret wemos_d1_8ledkeys_api_key
+
+  on_client_connected:
+    then:
+      - homeassistant.service:
+          service: homeassistant.update_entity
+          data:
+            entity_id: ${plug_01}
+
+      - homeassistant.service:
+          service: homeassistant.update_entity
+          data:
+            entity_id: ${plug_02}
+
+      - homeassistant.service:
+          service: homeassistant.update_entity
+          data:
+            entity_id: ${plug_03}
+
+      - homeassistant.service:
+          service: homeassistant.update_entity
+          data:
+            entity_id: ${plug_04}
+
+      - homeassistant.service:
+          service: homeassistant.update_entity
+          data:
+            entity_id: ${plug_05}
+
+      - homeassistant.service:
+          service: homeassistant.update_entity
+          data:
+            entity_id: ${plug_06}
+
+      - homeassistant.service:
+          service: homeassistant.update_entity
+          data:
+            entity_id: ${plug_07}
+
+      - homeassistant.service:
+          service: homeassistant.update_entity
+          data:
+            entity_id: ${plug_08}
+
+
+ota:
+  - platform: esphome
+    password: !secret wemos_d1_8ledkeys_ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "wemos-d1-8ledkeys"
+    password: "wemosd2ledkeys"
+
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+
+display:
+  platform: tm1638
+  clk_pin: GPIO14 # D5
+  dio_pin: GPIO12 # D6
+  stb_pin: GPIO13 # D7
+  update_interval: 500ms
+  lambda: |-
+    static bool i = 0;
+    if (id(homeassistant_time).now().is_valid()) {
+      if ((i) == 0)
+        it.strftime("%H-%M-%S", id(homeassistant_time).now());
+      else
+        it.strftime("%H %M %S", id(homeassistant_time).now());
+      }
+      else {
+        if ((i) == 0)
+          it.printf("-:-:-:-:");
+        else
+          it.printf(":-:-:-:-");
+      }
+    i = !i;
+
+# ------------------
+# LED Output (8 LEDs)
+# ------------------
+output:
+  - platform: tm1638
+    id: TM1638Led1
+    led: 0
+
+  - platform: tm1638
+    id: TM1638Led2
+    led: 1
+
+  - platform: tm1638
+    id: TM1638Led3
+    led: 2
+
+  - platform: tm1638
+    id: TM1638Led4
+    led: 3
+
+  - platform: tm1638
+    id: TM1638Led5
+    led: 4
+
+  - platform: tm1638
+    id: TM1638Led6
+    led: 5
+
+  - platform: tm1638
+    id: TM1638Led7
+    led: 6
+
+  - platform: tm1638
+    id: TM1638Led8
+    led: 7
+
+# -------------------------
+# HOME ASSISTANT PLUG STATES
+# -------------------------
+binary_sensor:
+  # 01
+  - platform: homeassistant
+    name: "P115-01"
+    id: p115_01_state
+    entity_id: ${plug_01}
+
+    internal: true
+    trigger_on_initial_state: true
+    on_state:
+      then:
+        - if:
+            condition:
+              binary_sensor.is_on: p115_01_state
+            then:
+              - output.turn_on: TM1638Led1
+            else:
+              - output.turn_off: TM1638Led1
+
+  # 02
+  - platform: homeassistant
+    name: "P115-02"
+    id: p115_02_state
+    entity_id: ${plug_02}
+
+    internal: true
+    trigger_on_initial_state: true
+    on_state:
+      then:
+        - if:
+            condition:
+              binary_sensor.is_on: p115_02_state
+            then:
+              - output.turn_on: TM1638Led2
+            else:
+              - output.turn_off: TM1638Led2
+
+  # 03
+  - platform: homeassistant
+    name: "P115-03"
+    id: p115_03_state
+    entity_id: ${plug_03}
+
+    internal: true
+    trigger_on_initial_state: true
+    on_state:
+      then:
+        - if:
+            condition:
+              binary_sensor.is_on: p115_03_state
+            then:
+              - output.turn_on: TM1638Led3
+            else:
+              - output.turn_off: TM1638Led3
+
+  # 04
+  - platform: homeassistant
+    name: "P115-04"
+    id: p115_04_state
+    entity_id: ${plug_04}
+
+    internal: true
+    trigger_on_initial_state: true
+    on_state:
+      then:
+        - if:
+            condition:
+              binary_sensor.is_on: p115_04_state
+            then:
+              - output.turn_on: TM1638Led4
+            else:
+              - output.turn_off: TM1638Led4
+
+  # A
+  - platform: homeassistant
+    name: "P115-A"
+    id: p115_A_state
+    entity_id: ${plug_05}
+
+    internal: true
+    trigger_on_initial_state: true
+    on_state:
+      then:
+        - if:
+            condition:
+              binary_sensor.is_on: p115_A_state
+            then:
+              - output.turn_on: TM1638Led5
+            else:
+              - output.turn_off: TM1638Led5
+
+  # B
+  - platform: homeassistant
+    name: "P115-B"
+    id: p115_B_state
+    entity_id: ${plug_06}
+
+    internal: true
+    trigger_on_initial_state: true
+    on_state:
+      then:
+        - if:
+            condition:
+              binary_sensor.is_on: p115_B_state
+            then:
+              - output.turn_on: TM1638Led6
+            else:
+              - output.turn_off: TM1638Led6
+
+  # C
+  - platform: homeassistant
+    name: "P115-C"
+    id: p115_C_state
+    entity_id: ${plug_07}
+
+    internal: true
+    trigger_on_initial_state: true
+    on_state:
+      then:
+        - if:
+            condition:
+              binary_sensor.is_on: p115_C_state
+            then:
+              - output.turn_on: TM1638Led7
+            else:
+              - output.turn_off: TM1638Led7
+
+  # D
+  - platform: homeassistant
+    name: "P115-D"
+    id: p115_D_state
+    entity_id: ${plug_08}
+
+    internal: true
+    trigger_on_initial_state: true
+    on_state:
+      then:
+        - if:
+            condition:
+              binary_sensor.is_on: p115_D_state
+            then:
+              - output.turn_on: TM1638Led8
+            else:
+              - output.turn_off: TM1638Led8
+
+# ----------------------------
+# TM1638 BUTTONS WITH DEBOUNCE
+# ----------------------------
+  # BUTTON 1 → PLUG 01
+  - platform: tm1638
+    name: "TM1638 Button 1"
+    id: TM1638Button1
+    key: 0
+    filters:
+      - delayed_on: 10ms
+    on_press:
+      - homeassistant.service:
+          service: switch.toggle
+          data:
+            entity_id: ${plug_01}
+
+
+  # BUTTON 2 → PLUG 02
+  - platform: tm1638
+    name: "TM1638 Button 2"
+    id: TM1638Button2
+    key: 1
+    filters:
+      - delayed_on: 10ms
+    on_press:
+      - homeassistant.service:
+          service: switch.toggle
+          data:
+            entity_id: ${plug_02}
+
+
+  # BUTTON 3 → PLUG 03
+  - platform: tm1638
+    name: "TM1638 Button 3"
+    id: TM1638Button3
+    key: 2
+    filters:
+      - delayed_on: 10ms
+    on_press:
+      - homeassistant.service:
+          service: switch.toggle
+          data:
+            entity_id: ${plug_03}
+
+
+  # BUTTON 4 → PLUG 04
+  - platform: tm1638
+    name: "TM1638 Button 4"
+    id: TM1638Button4
+    key: 3
+    filters:
+      - delayed_on: 10ms
+    on_press:
+      - homeassistant.service:
+          service: switch.toggle
+          data:
+            entity_id: ${plug_04}
+
+
+  # BUTTON 5 → PLUG A
+  - platform: tm1638
+    name: "TM1638 Button 5"
+    id: TM1638Button5
+    key: 4
+    filters:
+      - delayed_on: 10ms
+    on_press:
+      - homeassistant.service:
+          service: switch.toggle
+          data:
+            entity_id: ${plug_05}
+
+
+  # BUTTON 6 → PLUG B
+  - platform: tm1638
+    name: "TM1638 Button 6"
+    id: TM1638Button6
+    key: 5
+    filters:
+      - delayed_on: 10ms
+    on_press:
+      - homeassistant.service:
+          service: switch.toggle
+          data:
+            entity_id: ${plug_06}
+
+
+  # BUTTON 7 → PLUG C
+  - platform: tm1638
+    name: "TM1638 Button 7"
+    id: TM1638Button7
+    key: 6
+    filters:
+      - delayed_on: 10ms
+    on_press:
+      - homeassistant.service:
+          service: switch.toggle
+          data:
+            entity_id: ${plug_07}
+
+
+  # BUTTON 8 → PLUG D
+  - platform: tm1638
+    name: "TM1638 Button 8"
+    id: TM1638Button8
+    key: 7
+    filters:
+      - delayed_on: 10ms
+    on_press:
+      - homeassistant.service:
+          service: switch.toggle
+          data:
+            entity_id: ${plug_08}
+
+
