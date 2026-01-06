@@ -2,6 +2,20 @@ esphome:
   name: wemos-d1-8ledkeys
   friendly_name: wemos-d1-8ledkeys
 
+  on_boot:
+    priority: -100
+    then:
+      - delay: 200ms
+      - lambda: |-
+          id(TM1638Button1).publish_state(false);
+          id(TM1638Button2).publish_state(false);
+          id(TM1638Button3).publish_state(false);
+          id(TM1638Button4).publish_state(false);
+          id(TM1638Button5).publish_state(false);
+          id(TM1638Button6).publish_state(false);
+          id(TM1638Button7).publish_state(false);
+          id(TM1638Button8).publish_state(false);
+
 esp8266:
   board: d1_mini # Ideal for Wemos D1 Mini boards.
 
@@ -93,6 +107,12 @@ time:
 # --------------
 # TM1638 Display
 # --------------
+globals:
+  - id: anim_digit
+    type: int
+    restore_value: no
+    initial_value: "-1"
+
 display:
   platform: tm1638
   id: tm1638_display
@@ -101,6 +121,14 @@ display:
   stb_pin: GPIO13 # D7
   update_interval: 500ms
   lambda: |-
+    // If animation is active, draw bars on that digit
+    if (id(anim_digit) >= 0) {
+      it.print("        ");
+      it.print(id(anim_digit), "8");
+      return;
+    }
+
+    // Otherwise draw the clock
     static bool i = 0;
     if (id(homeassistant_time).now().is_valid()) {
       if ((i) == 0)
@@ -158,8 +186,7 @@ output:
 binary_sensor:
   # 01
   - platform: homeassistant
-    name: "P115-01"
-    id: p115_01_state
+    id: plug_01_state
     entity_id: ${plug_01}
 
     internal: true
@@ -168,7 +195,7 @@ binary_sensor:
       then:
         - if:
             condition:
-              binary_sensor.is_on: p115_01_state
+              binary_sensor.is_on: plug_01_state
             then:
               - output.turn_on: TM1638Led1
             else:
@@ -176,8 +203,7 @@ binary_sensor:
 
   # 02
   - platform: homeassistant
-    name: "P115-02"
-    id: p115_02_state
+    id: plug_02_state
     entity_id: ${plug_02}
 
     internal: true
@@ -186,7 +212,7 @@ binary_sensor:
       then:
         - if:
             condition:
-              binary_sensor.is_on: p115_02_state
+              binary_sensor.is_on: plug_02_state
             then:
               - output.turn_on: TM1638Led2
             else:
@@ -194,8 +220,7 @@ binary_sensor:
 
   # 03
   - platform: homeassistant
-    name: "P115-03"
-    id: p115_03_state
+    id: plug_03_state
     entity_id: ${plug_03}
 
     internal: true
@@ -204,7 +229,7 @@ binary_sensor:
       then:
         - if:
             condition:
-              binary_sensor.is_on: p115_03_state
+              binary_sensor.is_on: plug_03_state
             then:
               - output.turn_on: TM1638Led3
             else:
@@ -212,8 +237,7 @@ binary_sensor:
 
   # 04
   - platform: homeassistant
-    name: "P115-04"
-    id: p115_04_state
+    id: plug_04_state
     entity_id: ${plug_04}
 
     internal: true
@@ -222,16 +246,15 @@ binary_sensor:
       then:
         - if:
             condition:
-              binary_sensor.is_on: p115_04_state
+              binary_sensor.is_on: plug_04_state
             then:
               - output.turn_on: TM1638Led4
             else:
               - output.turn_off: TM1638Led4
 
-  # A
+  # 05
   - platform: homeassistant
-    name: "P115-A"
-    id: p115_A_state
+    id: plug_05_state
     entity_id: ${plug_05}
 
     internal: true
@@ -240,16 +263,15 @@ binary_sensor:
       then:
         - if:
             condition:
-              binary_sensor.is_on: p115_A_state
+              binary_sensor.is_on: plug_05_state
             then:
               - output.turn_on: TM1638Led5
             else:
               - output.turn_off: TM1638Led5
 
-  # B
+  # 06
   - platform: homeassistant
-    name: "P115-B"
-    id: p115_B_state
+    id: plug_06_state
     entity_id: ${plug_06}
 
     internal: true
@@ -258,16 +280,15 @@ binary_sensor:
       then:
         - if:
             condition:
-              binary_sensor.is_on: p115_B_state
+              binary_sensor.is_on: plug_06_state
             then:
               - output.turn_on: TM1638Led6
             else:
               - output.turn_off: TM1638Led6
 
-  # C
+  # 07
   - platform: homeassistant
-    name: "P115-C"
-    id: p115_C_state
+    id: plug_07_state
     entity_id: ${plug_07}
 
     internal: true
@@ -276,16 +297,15 @@ binary_sensor:
       then:
         - if:
             condition:
-              binary_sensor.is_on: p115_C_state
+              binary_sensor.is_on: plug_07_state
             then:
               - output.turn_on: TM1638Led7
             else:
               - output.turn_off: TM1638Led7
 
-  # D
+  # 08
   - platform: homeassistant
-    name: "P115-D"
-    id: p115_D_state
+    id: plug_08_state
     entity_id: ${plug_08}
 
     internal: true
@@ -294,7 +314,7 @@ binary_sensor:
       then:
         - if:
             condition:
-              binary_sensor.is_on: p115_D_state
+              binary_sensor.is_on: plug_08_state
             then:
               - output.turn_on: TM1638Led8
             else:
@@ -315,7 +335,11 @@ binary_sensor:
           service: switch.toggle
           data:
             entity_id: ${plug_01}
-
+      - lambda: |-
+          id(anim_digit) = 0;
+    on_release:
+      - lambda: |-
+          id(anim_digit) = -1;
 
   # BUTTON 2 → PLUG 02
   - platform: tm1638
@@ -329,6 +353,11 @@ binary_sensor:
           service: switch.toggle
           data:
             entity_id: ${plug_02}
+      - lambda: |-
+          id(anim_digit) = 1;
+    on_release:
+      - lambda: |-
+          id(anim_digit) = -1;
 
 
   # BUTTON 3 → PLUG 03
@@ -343,6 +372,11 @@ binary_sensor:
           service: switch.toggle
           data:
             entity_id: ${plug_03}
+      - lambda: |-
+          id(anim_digit) = 2;
+    on_release:
+      - lambda: |-
+          id(anim_digit) = -1;
 
 
   # BUTTON 4 → PLUG 04
@@ -357,6 +391,11 @@ binary_sensor:
           service: switch.toggle
           data:
             entity_id: ${plug_04}
+      - lambda: |-
+          id(anim_digit) = 3;
+    on_release:
+      - lambda: |-
+          id(anim_digit) = -1;
 
 
   # BUTTON 5 → PLUG A
@@ -371,7 +410,12 @@ binary_sensor:
           service: switch.toggle
           data:
             entity_id: ${plug_05}
-
+      - lambda: |-
+          id(anim_digit) = 4;
+    on_release:
+      - lambda: |-
+          id(anim_digit) = -1;
+       
 
   # BUTTON 6 → PLUG B
   - platform: tm1638
@@ -385,6 +429,11 @@ binary_sensor:
           service: switch.toggle
           data:
             entity_id: ${plug_06}
+      - lambda: |-
+          id(anim_digit) = 5;
+    on_release:
+      - lambda: |-
+          id(anim_digit) = -1;
 
 
   # BUTTON 7 → PLUG C
@@ -399,6 +448,11 @@ binary_sensor:
           service: switch.toggle
           data:
             entity_id: ${plug_07}
+      - lambda: |-
+          id(anim_digit) = 6;
+    on_release:
+      - lambda: |-
+          id(anim_digit) = -1;
 
 
   # BUTTON 8 → PLUG D
@@ -413,5 +467,10 @@ binary_sensor:
           service: switch.toggle
           data:
             entity_id: ${plug_08}
+      - lambda: |-
+          id(anim_digit) = 7;
+    on_release:
+      - lambda: |-
+          id(anim_digit) = -1;
 
 
