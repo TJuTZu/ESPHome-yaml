@@ -1,0 +1,277 @@
+esphome:
+  name: esp32c3buttonled
+  friendly_name: ESP32-C3-ButtonLed
+  min_version: 2025.9.0
+  name_add_mac_suffix: false
+
+  # Blink on boot
+  on_boot:
+    priority: -100
+    then:
+      - script.execute: wifi_wait_blink
+
+esp32:
+  variant: esp32c3
+  framework:
+    type: esp-idf
+
+logger:
+api:
+
+ota:
+  - platform: esphome
+    on_begin:
+      then:
+        - script.execute: ota_blink
+    on_end:
+      then:
+        - script.stop: ota_blink
+        - script.execute: apply_base_color
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  ap:
+    ssid: "ESP32-C3-ButtonLed"
+    password: !secret wifi_password
+
+  # WiFi connects → stop blink and return base color
+  on_connect:
+    then:
+      - script.stop: wifi_wait_blink
+      - script.execute: apply_base_color
+
+  # WiFi breaks  → 
+  on_disconnect:
+    then:
+      - light.turn_on:
+          id: light_1
+          red: 100%
+          green: 50%
+          blue: 0%
+          brightness: 100%
+          transition_length: 300ms
+
+light:
+  - platform: esp32_rmt_led_strip
+    id: light_1
+    name: "Single Button LED"
+    pin: GPIO04
+    chipset: ws2812
+    rgb_order: GRB
+    num_leds: 1
+
+# -------------------------
+# SAVE BASE COLOR
+# -------------------------
+globals:
+  - id: base_r
+    type: float
+    restore_value: true
+    initial_value: "1.0"
+  - id: base_g
+    type: float
+    restore_value: true
+    initial_value: "1.0"
+  - id: base_b
+    type: float
+    restore_value: true
+    initial_value: "1.0"
+  - id: base_brightness
+    type: float
+    restore_value: true
+    initial_value: "0.5"
+
+script:
+  # OTA-blink
+  - id: ota_blink
+    mode: restart
+    then:
+      - while:
+          condition:
+            lambda: 'return true;'
+          then:
+            - light.turn_on:
+                id: light_1
+                red: 0%
+                green: 0%
+                blue: 100%
+                brightness: 100%
+            - delay: 300ms
+            - light.turn_off: light_1
+            - delay: 300ms
+
+  # WiFi-wait connection blink (fast)
+  - id: wifi_wait_blink
+    mode: restart
+    then:
+      - while:
+          condition:
+            lambda: 'return true;'
+          then:
+            - light.turn_on:
+                id: light_1
+                red: 100%
+                green: 100%
+                blue: 0%
+                brightness: 100%
+            - delay: 150ms
+            - light.turn_off: light_1
+            - delay: 150ms
+
+  # Set LED basecolor
+  - id: apply_base_color
+    mode: restart
+    then:
+      - light.turn_on:
+          id: light_1
+          red: !lambda "return id(base_r);"
+          green: !lambda "return id(base_g);"
+          blue: !lambda "return id(base_b);"
+          brightness: !lambda "return id(base_brightness);"
+          transition_length: 300ms
+
+  # Save current state as LED base color
+  - id: save_current_as_base
+    mode: restart
+    then:
+      - lambda: |-
+          auto call = id(light_1).current_values;
+          id(base_r) = call.get_red();
+          id(base_g) = call.get_green();
+          id(base_b) = call.get_blue();
+          id(base_brightness) = call.get_brightness();
+
+# HA-button: "Save base color"
+button:
+  - platform: template
+    name: "LED base color – save"
+    id: save_base_color_button
+    on_press:
+      - script.execute: save_current_as_base
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO1
+      mode: INPUT_PULLUP
+      inverted: true
+    id: main_button
+    name: "HA Display Button"
+
+    # on press 100% white
+    on_press:
+      - light.turn_on:
+          id: light_1
+          red: 100%
+          green: 100%
+          blue: 100%
+          brightness: 100%
+
+    # on release → base color
+    on_release:
+      - script.execute: apply_base_color
+
+    on_multi_click:
+
+      # -------------------------
+      # SINGLE CLICK
+      # -------------------------
+      - timing:
+          - ON for at most 350ms
+          - OFF for at least 100ms
+        then:
+          - homeassistant.event:
+              event: esphome.button_event
+              data:
+                device: ha_display
+                button: main
+                action: single
+          - logger.log: "single_click"
+
+          # Blue 5 sec
+          - light.turn_on:
+              id: light_1
+              red: 0%
+              green: 0%
+              blue: 100%
+              brightness: 100%
+          - delay: 5s
+
+          # Back to base color
+          - script.execute: apply_base_color
+
+      # -------------------------
+      # DOUBLE CLICK
+      # -------------------------
+      - timing:
+          - ON for at most 350ms
+          - OFF for at most 350ms
+          - ON for at most 350ms
+          - OFF for at least 200ms
+        then:
+          - homeassistant.event:
+              event: esphome.button_event
+              data:
+                device: ha_display
+                button: main
+                action: double
+          - logger.log: "double_click"
+
+          # Red 5 sec
+          - light.turn_on:
+              id: light_1
+              red: 100%
+              green: 0%
+              blue: 0%
+              brightness: 100%
+          - delay: 5s
+
+          # Back to base color
+          - script.execute: apply_base_color
+
+      # -------------------------
+      # LONG PRESS
+      # -------------------------
+      - timing:
+          - ON for at least 600ms
+        then:
+          - homeassistant.event:
+              event: esphome.button_event
+              data:
+                device: ha_display
+                button: main
+                action: long
+          - logger.log: "long_press"
+
+          # Pulse 3x
+          - repeat:
+              count: 3
+              then:
+                - light.turn_on:
+                    id: light_1
+                    brightness: 0.5
+                    red: 1.0
+                    green: 1.0
+                    blue: 1.0
+                - delay: 300ms
+                - light.turn_on:
+                    id: light_1
+                    brightness: 1.0
+                    red: 1.0
+                    green: 1.0
+                    blue: 1.0
+                - delay: 300ms
+
+          # Green 5 sec
+          - light.turn_on:
+              id: light_1
+              red: 0%
+              green: 100%
+              blue: 0%
+              brightness: 100%
+          - delay: 5s
+
+          # Back to base color
+          - script.execute: apply_base_color
