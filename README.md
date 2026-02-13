@@ -3,7 +3,8 @@ Some ESPHome configurations made by me.
 
 These might give someone ideas how to make their own device configuratios
 ## ESP32-C3 Button with Led
-- esp32c3-button-led.yaml
+- esp32c3-button-led.yaml (ESPHome)
+- esp32c3-button-led-automation.yaml (automation example)
 <img width="200" alt="image" src="https://github.com/user-attachments/assets/ad484962-e083-4260-9f14-4ecdda3b1a9a" />
 
 ESPHome configuration for an ESP32-C3 microcontroller with a single WS2812B addressable RGB LED controlled via GPIO push button. Features:
