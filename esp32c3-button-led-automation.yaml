@@ -1,0 +1,27 @@
+alias: Button Example
+description: "esp32c3-button-led automation example"
+triggers:
+  - event_type: esphome.button_event
+    event_data:
+      device: ha_display
+      button: main
+    trigger: event
+conditions: []
+actions:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.event.data.action == 'single' }}"
+        sequence: []
+        alias: Single
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.event.data.action == 'double' }}"
+        sequence: []
+        alias: Double
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.event.data.action == 'long' }}"
+        sequence: []
+        alias: Long
+mode: single
